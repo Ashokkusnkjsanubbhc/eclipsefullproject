@@ -1,0 +1,36 @@
+
+	package tests;
+
+	import org.testng.annotations.*;
+	import org.openqa.selenium.WebDriver;
+	import org.openqa.selenium.chrome.ChromeDriver;
+
+	import io.github.bonigarcia.wdm.WebDriverManager;
+	import pages.LoginPage;
+
+	public class LoginTest {
+
+	    WebDriver driver;
+	    LoginPage loginPage;
+
+	    @BeforeClass
+	    public void setUp() {
+	        WebDriverManager.chromedriver().setup();
+	        driver = new ChromeDriver();
+	        driver.get("https://www.saucedemo.com/");
+	        driver.manage().window().maximize();
+	        loginPage = new LoginPage(driver);
+	    }
+
+	    @Test
+	    public void validLoginTest() {
+	        loginPage.login("standard_user", "secret_sauce");
+	        // You can add assertions here to verify login success
+	    }
+
+	    @AfterClass
+	    public void tearDown() {
+	        driver.quit();
+	    }
+	}
+

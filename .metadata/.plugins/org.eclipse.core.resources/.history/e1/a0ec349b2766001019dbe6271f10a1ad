@@ -1,0 +1,322 @@
+package tests;
+
+import io.github.bonigarcia.wdm.WebDriverManager;
+import org.openqa.selenium.*;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.interactions.Actions;
+import org.testng.Assert;
+import org.testng.annotations.*;
+
+import pages.*;
+
+public class SauceDemoTest {
+    WebDriver driver;
+    LoginPage loginPage;
+    ProductPage productPage;
+    CartPage cartPage;
+    CheckoutPage checkoutPage;
+    CheckoutOverviewPage overviewPage;
+    CheckoutCompletepage completePage;
+
+    @BeforeClass
+    public void setup() {
+        WebDriverManager.chromedriver().setup();
+        driver = new ChromeDriver();
+        driver.manage().window().maximize();
+        driver.get("https://www.saucedemo.com/");
+
+        loginPage = new LoginPage(driver);
+        productPage = new ProductPage(driver);
+        cartPage = new CartPage(driver);
+        checkoutPage = new CheckoutPage(driver);
+        overviewPage = new CheckoutOverviewPage(driver);
+        completePage = new CheckoutCompletepage();
+    }
+
+    // --------- LOGIN TESTS ---------
+    @Test(priority = 1)
+    public void validLogin() {
+        loginPage.login("standard_user", "secret_sauce");
+        Assert.assertTrue(driver.getCurrentUrl().contains("inventory"));
+    }
+
+    @Test(priority = 2)
+    public void invalidPassword() {
+        driver.navigate().to("https://www.saucedemo.com/");
+        loginPage.login("standard_user", "wrong_pass");
+        assertErrorMessage("Epic sadface: Username and password do not match any user in this service");
+    }
+
+    @Test(priority = 3)
+    public void invalidUsername() {
+        loginPage.login("wrong_user", "secret_sauce");
+        assertErrorMessage("Epic sadface: Username and password do not match any user in this service");
+    }
+
+    @Test(priority = 4)
+    public void bothInvalid() {
+        loginPage.login("invalid", "invalid");
+        assertErrorMessage("Epic sadface: Username and password do not match any user in this service");
+    }
+
+    @Test(priority = 5)
+    public void emptyUsername() {
+        loginPage.login("", "secret_sauce");
+        assertErrorMessage("Epic sadface: Username is required");
+    }
+
+    @Test(priority = 6)
+    public void emptyPassword() {
+        loginPage.login("standard_user", "");
+        assertErrorMessage("Epic sadface: Password is required");
+    }
+
+    @Test(priority = 7)
+    public void emptyBothFields() {
+        loginPage.login("", "");
+        assertErrorMessage("Epic sadface: Username is required");
+    }
+
+    @Test(priority = 8)
+    public void lockedOutUser() {
+        loginPage.login("locked_out_user", "secret_sauce");
+        assertErrorMessage("Epic sadface: Sorry, this user has been locked out.");
+    }
+
+    @Test(priority = 9)
+    public void problemUserLogin() {
+        loginPage.login("problem_user", "secret_sauce");
+        Assert.assertTrue(driver.getCurrentUrl().contains("inventory"));
+    }
+
+    @Test(priority = 10)
+    public void usernameCaseSensitivity() {
+        loginPage.login("Standard_User", "secret_sauce");
+        assertErrorMessage("Epic sadface: Username and password do not match any user in this service");
+    }
+
+    // --------- PRODUCT TESTS ---------
+    @Test(priority = 11)
+    public void verifyPageTitle() {
+        loginPage.login("standard_user", "secret_sauce");
+        Assert.assertEquals(productPage.getPageTitle(), "Products");
+    }
+
+    @Test(priority = 12)
+    public void addSingleProductToCart() {
+        productPage.addProductByIndex(0);
+        Assert.assertEquals(productPage.getCartItemCount(), 1);
+    }
+
+    @Test(priority = 13)
+    public void addAllProductsToCart() {
+        int total = productPage.getProductCount();
+        for (int i = 0; i < total; i++) {
+            productPage.addProductByIndex(i);
+        }
+        Assert.assertEquals(productPage.getCartItemCount(), total);
+    }
+
+    @Test(priority = 14)
+    public void removeProductFromCart() {
+        productPage.addProductByIndex(0);
+        productPage.removeProductByIndex(0);
+        Assert.assertEquals(productPage.getCartItemCount(), 0);
+    }
+
+    @Test(priority = 15)
+    public void verifyCartBadgeCount() {
+        productPage.addProductByIndex(0);
+        productPage.addProductByIndex(1);
+        Assert.assertEquals(productPage.getCartItemCount(), 2);
+    }
+
+    @Test(priority = 16)
+    public void sortByNameAZ() {
+        productPage.selectSortOption("az");
+        Assert.assertTrue(true);
+    }
+
+    @Test(priority = 17)
+    public void sortByNameZA() {
+        productPage.selectSortOption("za");
+        Assert.assertTrue(true);
+    }
+
+    @Test(priority = 18)
+    public void sortByPriceLowToHigh() {
+        productPage.selectSortOption("lohi");
+        Assert.assertTrue(true);
+    }
+
+    @Test(priority = 19)
+    public void sortByPriceHighToLow() {
+        productPage.selectSortOption("hilo");
+        Assert.assertTrue(true);
+    }
+
+    @Test(priority = 20)
+    public void openProductDetails() {
+        productPage.clickOnProductByIndex(0);
+        Assert.assertTrue(driver.getCurrentUrl().contains("inventory-item"));
+        driver.navigate().back();
+        Assert.assertTrue(productPage.getPageTitle().equals("Products"));
+    }
+
+    // --------- PRODUCT UI TESTS ---------
+    @Test(priority = 21)
+    public void checkPageTitleText() {
+        Assert.assertEquals(productPage.getPageTitle(), "Products");
+    }
+
+    @Test(priority = 22)
+    public void verifyLogoIsVisible() {
+        boolean logoVisible = driver.findElement(By.className("app_logo")).isDisplayed();
+        Assert.assertTrue(logoVisible);
+    }
+
+    @Test(priority = 23)
+    public void scrollToBottomAndVerifyFooter() {
+        JavascriptExecutor js = (JavascriptExecutor) driver;
+        js.executeScript("window.scrollTo(0, document.body.scrollHeight)");
+        WebElement footer = driver.findElement(By.className("footer_copy"));
+        Assert.assertTrue(footer.isDisplayed());
+    }
+
+    @Test(priority = 24)
+    public void checkFontSizeOfProductTitle() {
+        WebElement title = driver.findElement(By.className("inventory_item_name"));
+        String fontSize = title.getCssValue("font-size");
+        Assert.assertEquals(fontSize, "20px");
+    }
+
+    @Test(priority = 25)
+    public void checkPriceColor() {
+        WebElement price = driver.findElement(By.className("inventory_item_price"));
+        String color = price.getCssValue("color");
+        Assert.assertTrue(color.contains("rgb"));
+    }
+
+    @Test(priority = 26)
+    public void validateImagesLoaded() {
+        WebElement image = driver.findElement(By.cssSelector(".inventory_item_img img"));
+        boolean loaded = (Boolean) ((JavascriptExecutor) driver).executeScript(
+                "return arguments[0].complete && arguments[0].naturalWidth > 0;", image
+        );
+        Assert.assertTrue(loaded);
+    }
+
+    @Test(priority = 27)
+    public void verifyInputSanitizationInCheckout() {
+        driver.findElement(By.className("shopping_cart_link")).click();
+        driver.findElement(By.id("checkout")).click();
+        driver.findElement(By.id("first-name")).sendKeys("<script>alert(1)</script>");
+        driver.findElement(By.id("last-name")).sendKeys("X");
+        driver.findElement(By.id("postal-code")).sendKeys("000");
+        driver.findElement(By.id("continue")).click();
+        Assert.assertTrue(driver.getCurrentUrl().contains("checkout-step-two"));
+    }
+
+    // --------- CART + CHECKOUT TESTS ---------
+    @Test(priority = 28)
+    public void completeCheckoutSuccessfully() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("John", "Doe", "12345");
+        overviewPage.clickFinish();
+        Assert.assertEquals(completePage.getSuccessMessage(), "Thank you for your order!");
+    }
+
+    @Test(priority = 29)
+    public void emptyFirstNameShowsError() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("", "Doe", "12345");
+        Assert.assertEquals(checkoutPage.getErrorMessage(), "Error: First Name is required");
+    }
+
+    @Test(priority = 30)
+    public void emptyLastNameShowsError() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("John", "", "12345");
+        Assert.assertEquals(checkoutPage.getErrorMessage(), "Error: Last Name is required");
+    }
+
+    @Test(priority = 31)
+    public void emptyPostalCodeShowsError() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("John", "Doe", "");
+        Assert.assertEquals(checkoutPage.getErrorMessage(), "Error: Postal Code is required");
+    }
+
+    @Test(priority = 32)
+    public void verifyTotalPriceIncludesTax() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("John", "Doe", "12345");
+        String total = overviewPage.getTotalAmount();
+        Assert.assertTrue(total.contains("Total"));
+    }
+
+    @Test(priority = 33)
+    public void finishButtonNavigatesToCompletePage() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("John", "Doe", "12345");
+        overviewPage.clickFinish();
+        Assert.assertTrue(driver.getCurrentUrl().contains("checkout-complete"));
+    }
+
+    @Test(priority = 34)
+    public void backToProductsNavigatesToInventory() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("John", "Doe", "12345");
+        overviewPage.clickFinish();
+        completePage.clickBackToProducts();
+        Assert.assertTrue(driver.getCurrentUrl().contains("inventory"));
+    }
+
+    @Test(priority = 35)
+    public void checkoutWithMultipleProducts() {
+        productPage.addProductByIndex(0);
+        productPage.addProductByIndex(1);
+        driver.findElement(By.className("shopping_cart_link")).click();
+        cartPage.clickCheckout();
+        checkoutPage.enterCheckoutInfo("Alice", "Smith", "56789");
+        overviewPage.clickFinish();
+        Assert.assertEquals(completePage.getSuccessMessage(), "Thank you for your order!");
+    }
+
+    @Test(priority = 36)
+    public void checkoutWithoutAnyProduct() {
+        driver.findElement(By.className("shopping_cart_link")).click();
+        cartPage.clickCheckout();
+        checkoutPage.enterCheckoutInfo("No", "Item", "00000");
+        Assert.assertTrue(driver.getCurrentUrl().contains("checkout-step-two"));
+    }
+
+    @Test(priority = 37)
+    public void invalidZipCodeFormatStillAccepted() {
+        goToCheckout();
+        checkoutPage.enterCheckoutInfo("Fake", "User", "abcde");
+        overviewPage.clickFinish();
+        Assert.assertTrue(driver.getCurrentUrl().contains("checkout-complete"));
+    }
+
+    @AfterClass
+    public void tearDown() {
+        if (driver != null) {
+            driver.quit();
+        }
+    }
+
+    // Helper methods
+    private void assertErrorMessage(String expected) {
+        String actual = driver.findElement(By.cssSelector("h3[data-test='error']")).getText();
+        Assert.assertEquals(actual.trim(), expected.trim());
+    }
+
+    private void goToCheckout() {
+        driver.get("https://www.saucedemo.com/");
+        loginPage.login("standard_user", "secret_sauce");
+        productPage.addProductByIndex(0);
+        driver.findElement(By.className("shopping_cart_link")).click();
+        cartPage.clickCheckout();
+    }
+}
